@@ -1,5 +1,23 @@
 `timescale 1ns / 1ps
-
+//////////////////////////////////////////////////////////////////////////////////
+// Company: DFX-FPGA-WORKSHOP
+// Engineer: Revanth . A .H
+// 
+// Create Date: 01.08.2026 10:31:03
+// Design Name: 
+// Module Name: rp_wrapper
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
 
 module impulse_wave (
     input  wire       clk,

@@ -1,12 +1,12 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
+// Company: DFX-FPGA-WORKSHOP
+// Engineer: Revanth A H
 // 
-// Create Date: 01.08.2026 10:32:39
+// Create Date: 01.08.2026 10:28:46
 // Design Name: 
-// Module Name: square_wave
-// Project Name: 
+// Module Name: top
+// Project Name: Signal Generator
 // Target Devices: 
 // Tool Versions: 
 // Description: 
