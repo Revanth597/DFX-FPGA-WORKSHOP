@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
 // Company: 
-// Engineer: Revanth .A.H , Parthavi N.R
+// Engineer: Parthavi N.R
 // 
 // Create Date: 01.08.2026 13:52:59
 // Design Name: 
