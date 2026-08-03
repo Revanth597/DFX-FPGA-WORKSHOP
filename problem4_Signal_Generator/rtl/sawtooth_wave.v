@@ -1,11 +1,12 @@
 `timescale 1ns / 1ps
+
 //////////////////////////////////////////////////////////////////////////////////
 // Company: DFX-FPGA-WORKSHOP
-// Engineer: Revanth A H
+// Engineer: Revanth. A .H
 // 
-// Create Date: 01.08.2026 10:28:46
+// Create Date: 01.08.2026 10:31:03
 // Design Name: 
-// Module Name: top
+// Module Name: sawtooth_wave
 // Project Name: Signal Generator
 // Target Devices: 
 // Tool Versions: 
@@ -20,32 +21,28 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module square_wave #(
-    parameter HALF_PERIOD = 24'd5000000,
-    parameter FULL_PERIOD = 24'd10000000
-)(
-    input  wire clk,
-    input  wire rst,
-    output reg  wave_out
+
+module sawtooth_wave (
+    input  wire       clk,
+    input  wire       rst,
+    output reg  [7:0] wave_out
 );
 
-    reg [23:0] counter;
+    reg [23:0] divider;
 
     always @(posedge clk) begin
         if (rst) begin
-            counter  <= 0;
+            divider  <= 0;
             wave_out <= 0;
         end
         else begin
-            counter <= counter + 1;
-
-            if (counter < HALF_PERIOD)
-                wave_out <= 1'b1;
-            else
-                wave_out <= 1'b0;
-
-            if (counter == FULL_PERIOD)
-                counter <= 0;
+            if (divider == 24'd9_999_999) begin
+                divider  <= 0;
+                wave_out <= wave_out + 1'b1;
+            end
+            else begin
+                divider <= divider + 1'b1;
+            end
         end
     end
 

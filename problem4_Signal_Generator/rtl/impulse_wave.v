@@ -5,8 +5,8 @@
 // 
 // Create Date: 01.08.2026 10:31:03
 // Design Name: 
-// Module Name: rp_wrapper
-// Project Name: 
+// Module Name: impulse_wave
+// Project Name: Signal Generator
 // Target Devices: 
 // Tool Versions: 
 // Description: 

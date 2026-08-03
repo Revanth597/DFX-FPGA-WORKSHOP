@@ -1,9 +1,9 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
-// Company: DFX-FPGA-WORKSHOP
-// Engineer: Revanth . A .H
+// Company: 
+// Engineer: Revanth .A.H , Parthavi N.R
 // 
-// Create Date: 01.08.2026 10:31:03
+// Create Date: 01.08.2026 13:52:59
 // Design Name: 
 // Module Name: rp_wrapper
 // Project Name: 
@@ -18,18 +18,18 @@
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
-
-
-module rp_wrapper(
-    input  wire clk,
-    input  wire rst,
-    output wire wave_out
+module rp_wrapper (
+    input  wire [31:0] operand_a,
+    input  wire [31:0] operand_b,
+    input  wire [1:0]  operation,
+    output wire [31:0] result
 );
 
-square_wave rm_inst(
-    .clk(clk),
-    .rst(rst),
-    .wave_out(wave_out)
-);
+    arithmetic rm_inst (
+        .operand_a (operand_a),
+        .operand_b (operand_b),
+        .operation (operation),
+        .result    (result)
+    );
 
 endmodule
