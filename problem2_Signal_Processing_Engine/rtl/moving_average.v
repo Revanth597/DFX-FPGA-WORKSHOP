@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
+// Company: DFX-FPGA-WORKSHOP
+// Engineer: Revanth.A.H 
 // 
 // Create Date: 01.08.2026 12:43:27
 // Design Name: 

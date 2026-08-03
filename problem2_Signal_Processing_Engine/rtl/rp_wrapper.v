@@ -1,7 +1,7 @@
 
 //////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
+// Company: DFX-FPGA-WORKSHOP
+// Engineer: Revanth.A.H 
 // 
 // Create Date: 01.08.2026 12:58:07
 // Design Name: 
