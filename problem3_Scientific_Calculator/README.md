@@ -530,12 +530,3 @@ The original hackathon problem statement is included at the root of this reposit
 ```text
 CAPTURE_THE_BITSTREAM_Hackathon_Problem_Statements.pdf
 ```
-
----
-
-## Author
-
-**Revanth A. H , Parthavi N. R**
-
-CAPTURE THE BITSTREAM Hackathon  
-DFX FPGA Workshop
