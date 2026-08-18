@@ -20,21 +20,19 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
+`timescale 1ns / 1ps
+
 module top(
-    input  wire clk,
-    input  wire rst,
-    output wire wave_out
+    input  wire       clk,
+    input  wire       resetn,
+    output wire [7:0] wave_out
 );
 
-wire wave_signal;
-
-// Reconfigurable Partition
-rp_wrapper RP (
-    .clk(clk),
-    .rst(rst),
-    .wave_out(wave_signal)
-);
-
-assign wave_out = wave_signal;
+    // Reconfigurable Partition
+    rp_wrapper RP (
+        .clk(clk),
+        .resetn(resetn),
+        .wave_out(wave_out)
+    );
 
 endmodule

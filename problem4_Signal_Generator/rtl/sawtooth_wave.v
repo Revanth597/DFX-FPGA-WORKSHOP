@@ -24,26 +24,43 @@
 
 module sawtooth_wave (
     input  wire       clk,
-    input  wire       rst,
-    output reg  [7:0] wave_out
+    input  wire       resetn,
+    output wire  [7:0] wave_out
 );
+        reg [7:0]  waveout;
+        reg [23:0] divider;
 
-    reg [23:0] divider;
+        reg [7:0]  waveout_next;
+        reg [23:0] divider_next;
 
-    always @(posedge clk) begin
-        if (rst) begin
-            divider  <= 0;
-            wave_out <= 0;
+always @(posedge clk)
+begin
+        if (!resetn)
+        begin
+                divider <= 24'd0;
+                waveout <= 8'd0;
         end
-        else begin
-            if (divider == 24'd9_999_999) begin
-                divider  <= 0;
-                wave_out <= wave_out + 1'b1;
-            end
-            else begin
-                divider <= divider + 1'b1;
-            end
+        else
+        begin
+                if (divider == 24'd9_999_999)
+                begin
+                        divider <= 24'd0;
+                        waveout <= waveout_next;
+                end
+                else
+                begin
+                        divider <= divider_next;
+                end
         end
-    end
+end
+
+always @(*)
+begin
+        waveout_next  = waveout + 1'b1;
+        divider_next  = divider + 1'b1;
+end
+
+assign wave_out = waveout;
+  
 
 endmodule

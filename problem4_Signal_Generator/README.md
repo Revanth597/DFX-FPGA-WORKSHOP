@@ -36,7 +36,7 @@ The design consists of a static top-level system and a single Reconfigurable Par
                     |       top.v         |
                     |                     |
         clk ------->|                     |
-        rst ------->|                     |
+      resetn ------>|                     |
                     |   +-------------+   |
                     |   |             |   |
                     |   | RP          |   |
@@ -130,12 +130,14 @@ Only **one RM is active in the Reconfigurable Partition for a given DFX configur
 
 The static portion of the FPGA design remains unchanged.
 
+In the current RTL, `rp_wrapper.v` instantiates `square_wave` as `rm_inst`. The `sawtooth_wave.v` and `impulse_wave.v` modules use the same `clk`, `resetn`, and `wave_out[7:0]` interface and are implemented as compatible Reconfigurable Modules.
+
 ---
 
 ## Project Structure
 
 ```text
-probelm4_Signal_Generator/
+problem4_Signal_Generator/
 |
 ├── README.md
 |
@@ -180,12 +182,12 @@ The implementation targets the **Digilent Basys 3** FPGA development board.
 
 ## FPGA I/O
 
-The design uses the Basys 3 onboard 100 MHz clock, center push button, and eight LEDs.
+The design uses the Basys 3 onboard 100 MHz clock, center push button, and eight LEDs. The reset input is active-low and is named `resetn`.
 
 | Design Signal | Board Resource | FPGA Pin |
 |---|---|---|
 | `clk` | 100 MHz Clock | W5 |
-| `rst` | BTNC | U18 |
+| `resetn` | BTNC | U18 |
 | `wave_out[0]` | LED0 | U16 |
 | `wave_out[1]` | LED1 | E19 |
 | `wave_out[2]` | LED2 | U19 |

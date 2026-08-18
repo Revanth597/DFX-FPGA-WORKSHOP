@@ -18,8 +18,8 @@ create_clock -period 10.000 -name sys_clk_pin -waveform {0.000 5.000} -add [get_
 ## Reset - Center Button BTNC
 ## ------------------------------------------------------------
 
-set_property PACKAGE_PIN U18 [get_ports rst]
-set_property IOSTANDARD LVCMOS33 [get_ports rst]
+set_property PACKAGE_PIN U18 [get_ports resetn]
+set_property IOSTANDARD LVCMOS33 [get_ports resetn]
 
 
 ## ------------------------------------------------------------
