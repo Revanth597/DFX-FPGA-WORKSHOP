@@ -43,7 +43,7 @@ The design consists of a static top-level system and a single Reconfigurable Par
                     |   | rp_wrapper  |   |
                     |   |             |   |
                     |   | Active RM   |   |
-                    |   +------+------+\  |
+                    |   +------+------+   |
                     |          |          |
                     +----------|----------+
                                |
