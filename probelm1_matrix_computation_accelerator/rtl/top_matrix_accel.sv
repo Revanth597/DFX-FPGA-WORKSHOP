@@ -1,48 +1,111 @@
+//////////////////////////////////////////////////////////////////////////////////
+// Company: DFX-FPGA-WORKSHOP
+// Engineer: Revanth A H
+// Create Date: 01.08.2026 11:22:05
+// Design Name: 
+// Module Name: top_matrix_accel
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
 module top_matrix_accel (
     input  wire       clk100mhz,
-    input  wire       rst_btn,      // Active-high reset button
-    input  wire       uart_rxd,     // UART RX pin (from PC)
-    output wire       uart_txd,     // UART TX pin (to PC)
-    output reg  [2:0] led_mode      // LEDs indicating selected operation mode
+    input  wire       rst_btn,
+    input  wire       uart_rxd,
+    output wire       uart_txd,
+    output reg  [2:0] led_mode
 );
 
-    // --- UART RX Signals ---
+    // ------------------------------------------------------------
+    // UART RX Signals
+    // ------------------------------------------------------------
     wire [7:0] rx_data;
     wire       rx_valid;
 
-    // --- UART TX Signals ---
+    // ------------------------------------------------------------
+    // UART TX Signals
+    // ------------------------------------------------------------
     reg  [7:0] tx_data;
     reg        tx_start = 0;
     wire       tx_busy;
 
-    // --- Instantiations for UART ---
-    uart_rx #(.CLK_FREQ(100_000_000), .BAUD_RATE(115200)) u_rx (
-        .clk(clk100mhz), .rst(rst_btn), .rx(uart_rxd),
-        .data_out(rx_data), .data_valid(rx_valid)
+    // ------------------------------------------------------------
+    // UART RX
+    // ------------------------------------------------------------
+    uart_rx #(
+        .CLK_FREQ(100_000_000),
+        .BAUD_RATE(115200)
+    ) u_rx (
+        .clk(clk100mhz),
+        .rst(rst_btn),
+        .rx(uart_rxd),
+        .data_out(rx_data),
+        .data_valid(rx_valid)
     );
 
-    uart_tx #(.CLK_FREQ(100_000_000), .BAUD_RATE(115200)) u_tx (
-        .clk(clk100mhz), .rst(rst_btn), .data_in(tx_data),
-        .start(tx_start), .tx(uart_txd), .busy(tx_busy)
+    // ------------------------------------------------------------
+    // UART TX
+    // ------------------------------------------------------------
+    uart_tx #(
+        .CLK_FREQ(100_000_000),
+        .BAUD_RATE(115200)
+    ) u_tx (
+        .clk(clk100mhz),
+        .rst(rst_btn),
+        .data_in(tx_data),
+        .start(tx_start),
+        .tx(uart_txd),
+        .busy(tx_busy)
     );
 
-    // --- Storage Registers & Internal Wires ---
+    // ------------------------------------------------------------
+    // Matrix Storage
+    // ------------------------------------------------------------
+
     reg [7:0] mode_reg = 0;
-    
-    // Arrays matching submodule signatures (signed 16-bit inputs, signed 32-bit outputs)
-    reg  signed [15:0] mat_A [0:24];
-    reg  signed [15:0] mat_B [0:24];
-    reg  signed [31:0] mat_C [0:24];
 
-    wire signed [31:0] add_out  [0:24];
-    wire signed [31:0] mult_out [0:24];
-    wire signed [31:0] tr_out   [0:24];
+    // 25 elements x 16 bits = 400 bits
+    reg signed [399:0] mat_A;
+    reg signed [399:0] mat_B;
 
-    // Submodule Control Signals
-    reg  start_calc = 0;
-    wire add_done, mult_done, tr_done;
+    // 25 elements x 32 bits = 800 bits
+    reg signed [799:0] mat_C;
 
-    // --- Arithmetic Execution Submodules ---
+    wire signed [799:0] add_out;
+    wire signed [799:0] mult_out;
+    wire signed [799:0] tr_out;
+
+    // Counter for 25 matrix elements
+    reg [5:0] counter;
+
+    // Counter for RX/TX bytes
+    reg [7:0] byte_count;
+
+    // Calculation start pulse
+    reg start_calc = 0;
+
+    // Done signals from submodules
+    wire add_done;
+    wire mult_done;
+    wire tr_done;
+
+    // NEW: Latches the selected done signal
+    reg calc_done_latched;
+
+
+    // ------------------------------------------------------------
+    // Arithmetic Submodules
+    // ------------------------------------------------------------
+
     rm1_matrix_add u_add (
         .clk(clk100mhz),
         .rst(rst_btn),
@@ -73,7 +136,11 @@ module top_matrix_accel (
         .done(tr_done)
     );
 
-    // --- State Machine ---
+
+    // ------------------------------------------------------------
+    // FSM States
+    // ------------------------------------------------------------
+
     typedef enum logic [2:0] {
         ST_IDLE,
         ST_RX_BYTES,
@@ -82,88 +149,370 @@ module top_matrix_accel (
         ST_TX_WAIT
     } state_t;
 
-    state_t state = ST_IDLE;
-    reg [5:0] byte_count = 0;
-    integer idx;
+    state_t state, next_state;
 
-    always @(posedge clk100mhz or posedge rst_btn) begin
-        if (rst_btn) begin
-            state      <= ST_IDLE;
-            byte_count <= 0;
-            tx_start   <= 0;
-            start_calc <= 0;
-            led_mode   <= 3'b000;
-        end else begin
-            tx_start   <= 0; // Default pulse suppression
-            start_calc <= 0; // Default pulse suppression
+
+    // ------------------------------------------------------------
+    // State Register
+    // ------------------------------------------------------------
+
+    always @(posedge clk100mhz) begin
+        if (!rst_btn) begin
+            state <= ST_IDLE;
+        end
+        else begin
+            state <= next_state;
+        end
+    end
+
+
+    // ------------------------------------------------------------
+    // Next-State Logic
+    // ------------------------------------------------------------
+
+    always @(*) begin
+
+        next_state = state;
+
+        case (state)
+
+            // ----------------------------------------------------
+            // IDLE
+            // First received byte is the operation mode
+            // ----------------------------------------------------
+            ST_IDLE: begin
+                if (rx_valid)
+                    next_state = ST_RX_BYTES;
+                else
+                    next_state = ST_IDLE;
+            end
+
+
+            // ----------------------------------------------------
+            // Receive 100 bytes
+            // 50 bytes = Matrix A
+            // 50 bytes = Matrix B
+            // ----------------------------------------------------
+            ST_RX_BYTES: begin
+
+                if (rx_valid && byte_count == 99)
+                    next_state = ST_COMPUTE;
+                else
+                    next_state = ST_RX_BYTES;
+
+            end
+
+
+            // ----------------------------------------------------
+            // Wait for selected calculation to complete
+            // ----------------------------------------------------
+            ST_COMPUTE: begin
+
+                // Wait until the selected done signal has been
+                // latched AND all 25 results have been copied
+                if (calc_done_latched && counter == 24)
+                    next_state = ST_TX_BYTES;
+                else
+                    next_state = ST_COMPUTE;
+
+            end
+
+
+            // ----------------------------------------------------
+            // Start sending one byte
+            // ----------------------------------------------------
+            ST_TX_BYTES: begin
+
+                if (!tx_busy && !tx_start)
+                    next_state = ST_TX_WAIT;
+                else
+                    next_state = ST_TX_BYTES;
+
+            end
+
+
+            // ----------------------------------------------------
+            // Wait until UART finishes current byte
+            // ----------------------------------------------------
+            ST_TX_WAIT: begin
+
+                if (!tx_busy) begin
+
+                    if (byte_count == 99)
+                        next_state = ST_IDLE;
+                    else
+                        next_state = ST_TX_BYTES;
+
+                end
+                else begin
+                    next_state = ST_TX_WAIT;
+                end
+
+            end
+
+
+            default: begin
+                next_state = ST_IDLE;
+            end
+
+        endcase
+
+    end
+
+
+    // ------------------------------------------------------------
+    // Datapath and Control Logic
+    // ------------------------------------------------------------
+
+    always @(posedge clk100mhz) begin
+
+        if (!rst_btn) begin
+
+            byte_count       <= 0;
+            tx_start         <= 0;
+            start_calc       <= 0;
+            led_mode         <= 3'b000;
+            counter          <= 0;
+            mode_reg         <= 0;
+            tx_data          <= 0;
+            mat_A            <= 0;
+            mat_B            <= 0;
+            mat_C            <= 0;
+
+        end
+        else begin
+
+            // Default: these are one-clock pulses
+            tx_start   <= 1'b0;
+            start_calc <= 1'b0;
+
+
+            // ====================================================
+            // LATCH THE SELECTED DONE SIGNAL
+            // ====================================================
+
+            if (!calc_done_latched) begin
+
+                if ((mode_reg == 8'h01 && add_done) ||
+                    (mode_reg == 8'h02 && mult_done) ||
+                    (mode_reg == 8'h03 && tr_done)) begin
+
+                    calc_done_latched <= 1'b1;
+
+                end
+
+            end
+
 
             case (state)
+
+                // =================================================
+                // IDLE
+                // =================================================
                 ST_IDLE: begin
+
                     byte_count <= 0;
+                    counter    <= 0;
+
+                    // Clear done latch for a new operation
+                    calc_done_latched <= 1'b0;
+
                     if (rx_valid) begin
+
+                        // First UART byte = mode
                         mode_reg <= rx_data;
+
                         case (rx_data)
+
                             8'h01: led_mode <= 3'b001; // ADD
                             8'h02: led_mode <= 3'b010; // MULT
                             8'h03: led_mode <= 3'b100; // TRANSPOSE
+
                             default: led_mode <= 3'b000;
+
                         endcase
-                        state <= ST_RX_BYTES;
+
                     end
+
                 end
 
+
+                // =================================================
+                // RECEIVE MATRIX A AND MATRIX B
+                // =================================================
                 ST_RX_BYTES: begin
+
                     if (rx_valid) begin
-                        if (byte_count < 25) begin
-                            mat_A[byte_count] <= {8'd0, rx_data}; // Zero-extend incoming byte
-                        end else begin
-                            mat_B[byte_count - 25] <= {8'd0, rx_data};
+
+                        // -----------------------------------------
+                        // Matrix A = bytes 0 to 49
+                        // -----------------------------------------
+                        if (byte_count < 50) begin
+
+                            if (byte_count[0] == 1'b0) begin
+
+                                // Lower 8 bits
+                                mat_A[(byte_count >> 1)*16 +: 8]
+                                    <= rx_data;
+
+                            end
+                            else begin
+
+                                // Upper 8 bits
+                                mat_A[(byte_count >> 1)*16 + 8 +: 8]
+                                    <= rx_data;
+
+                            end
+
                         end
 
-                        if (byte_count == 49) begin
-                            start_calc <= 1'b1; // Trigger calculation pulse
-                            state      <= ST_COMPUTE;
-                        end else begin
-                            byte_count <= byte_count + 1'b1;
+
+                        // -----------------------------------------
+                        // Matrix B = bytes 50 to 99
+                        // -----------------------------------------
+                        else begin
+
+                            if (byte_count[0] == 1'b0) begin
+
+                                // Lower 8 bits
+                                mat_B[((byte_count - 50) >> 1)*16 +: 8]
+                                    <= rx_data;
+
+                            end
+                            else begin
+
+                                // Upper 8 bits
+                                mat_B[((byte_count - 50) >> 1)*16 + 8 +: 8]
+                                    <= rx_data;
+
+                            end
+
                         end
+
+
+                        // -----------------------------------------
+                        // 100th byte received
+                        // -----------------------------------------
+                        if (byte_count == 99) begin
+
+                            // Pulse calculation start
+                            start_calc <= 1'b1;
+
+                            // Prepare for result-copy phase
+                            counter <= 0;
+
+                            // Clear old done latch before new operation
+                            calc_done_latched <= 1'b0;
+
+                            // Reset byte count for TX later
+                            byte_count <= 0;
+
+                        end
+                        else begin
+
+                            byte_count <= byte_count + 1'b1;
+
+                        end
+
                     end
+
                 end
 
+
+                // =================================================
+                // COMPUTE
+                // =================================================
                 ST_COMPUTE: begin
-                    // Latch result array based on mode selection
-                    for (idx = 0; idx < 25; idx = idx + 1) begin
+
+                    // IMPORTANT:
+                    // Only start copying results AFTER the selected
+                    // calculation done signal has been latched.
+                    if (calc_done_latched) begin
+
                         case (mode_reg)
-                            8'h01:   mat_C[idx] <= add_out[idx];
-                            8'h02:   mat_C[idx] <= mult_out[idx];
-                            8'h03:   mat_C[idx] <= tr_out[idx];
-                            default: mat_C[idx] <= add_out[idx];
+
+                            8'h01:
+                                mat_C[counter*32 +: 32]
+                                    <= add_out[counter*32 +: 32];
+
+                            8'h02:
+                                mat_C[counter*32 +: 32]
+                                    <= mult_out[counter*32 +: 32];
+
+                            8'h03:
+                                mat_C[counter*32 +: 32]
+                                    <= tr_out[counter*32 +: 32];
+
+                            default:
+                                mat_C[counter*32 +: 32]
+                                    <= add_out[counter*32 +: 32];
+
                         endcase
-                    end
-                    byte_count <= 0;
-                    state      <= ST_TX_BYTES;
-                end
 
-                ST_TX_BYTES: begin
-                    if (!tx_busy && !tx_start) begin
-                        tx_data    <= mat_C[byte_count][7:0]; // Send lower byte over UART
-                        tx_start   <= 1'b1;
-                        state      <= ST_TX_WAIT;
-                    end
-                end
 
-                ST_TX_WAIT: begin
-                    if (tx_busy) begin
-                        if (byte_count == 24) begin
-                            state <= ST_IDLE;
-                        end else begin
-                            byte_count <= byte_count + 1'b1;
-                            state      <= ST_TX_BYTES;
+                        // Copy all 25 x 32-bit elements
+                        if (counter == 24) begin
+
+                            counter    <= 0;
+                            byte_count <= 0;
+
                         end
+                        else begin
+
+                            counter <= counter + 1'b1;
+
+                        end
+
                     end
+
                 end
 
-                default: state <= ST_IDLE;
+
+                // =================================================
+                // TRANSMIT ONE BYTE
+                // =================================================
+                ST_TX_BYTES: begin
+
+                    if (!tx_busy && !tx_start) begin
+
+                        tx_data <= mat_C[byte_count*8 +: 8];
+
+                        // One-clock pulse
+                        tx_start <= 1'b1;
+
+                    end
+
+                end
+
+
+                // =================================================
+                // WAIT FOR UART TO FINISH
+                // =================================================
+                ST_TX_WAIT: begin
+
+                    if (!tx_busy) begin
+
+                        if (byte_count != 99) begin
+
+                            byte_count <= byte_count + 1'b1;
+
+                        end
+
+                    end
+
+                end
+
+
+                default: begin
+
+                    // Nothing required here
+
+                end
+
             endcase
+
         end
+
     end
+
 endmodule
